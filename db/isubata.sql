@@ -1,4 +1,4 @@
-re('INSERT INTO user (name, salt, password, display_name, avatar_icon, created_at) VALUES (?, ?, ?, ?, ?, NOW())')
+-- re('INSERT INTO user (name, salt, password, display_name, avatar_icon, created_at) VALUES (?, ?, ?, ?, ?, NOW())')
 -- row = db.query('SELECT LAST_INSERT_ID() AS last_insert_id').first
 
 -- 'SELECT * FROM user WHERE name = ?'
@@ -11,8 +11,7 @@ CREATE TABLE user (
   password VARCHAR(40),
   display_name TEXT,
   avatar_icon TEXT,
-  created_at DATETIME NOT NULL,
-  INDEX idx_name(name)
+  created_at DATETIME NOT NULL
 ) Engine=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- SELECT * FROM image WHERE name = ?
@@ -22,8 +21,7 @@ CREATE TABLE user (
 CREATE TABLE image (
   id INTEGER UNSIGNED AUTO_INCREMENT NOT NULL PRIMARY KEY,
   name VARCHAR(191),
-  data LONGBLOB,
-  INDEX idx_name(name)
+  data LONGBLOB
 ) Engine=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 'SELECT id FROM channel'
@@ -48,8 +46,7 @@ CREATE TABLE message (
   channel_id INTEGER,
   user_id INTEGER,
   content TEXT,
-  created_at DATETIME NOT NULL,
-  INDEX idx_channel_id(channel_id, id)
+  created_at DATETIME NOT NULL
 ) Engine=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 'INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ',
