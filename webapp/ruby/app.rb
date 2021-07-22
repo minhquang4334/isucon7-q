@@ -118,14 +118,17 @@ class App < Sinatra::Base
 
     channel_id = params[:channel_id].to_i
     last_message_id = params[:last_message_id].to_i
-    statement = db.prepare('SELECT * FROM message WHERE id > ? AND channel_id = ? ORDER BY id DESC LIMIT 100')
+    statement = db.prepare('SELECT message.id, message.created_at, message.content, user.name, user.display_name, user.avatar_icon FROM message JOIN user ON user.id = message.user_id WHERE message.id > ? AND message.channel_id = ? ORDER BY message.id LIMIT 100')
     rows = statement.execute(last_message_id, channel_id).to_a
     response = []
     rows.each do |row|
       r = {}
       r['id'] = row['id']
-      statement = db.prepare('SELECT name, display_name, avatar_icon FROM user WHERE id = ?')
-      r['user'] = statement.execute(row['user_id']).first
+      r['user'] = {
+        display_name: row['display_name'],
+        name: row['name'],
+        avatar_icon: row['avatar_icon'],
+      }
       r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
       r['content'] = row['content']
       response << r
@@ -133,7 +136,7 @@ class App < Sinatra::Base
     end
     response.reverse!
 
-    max_message_id = rows.empty? ? 0 : rows.map { |row| row['id'] }.max
+    max_message_id = rows.empty? ? 0 : rows[0]['id']
     statement = db.prepare([
       'INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ',
       'VALUES (?, ?, ?, NOW(), NOW()) ',
