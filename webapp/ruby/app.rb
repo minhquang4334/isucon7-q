@@ -118,14 +118,19 @@ class App < Sinatra::Base
 
     channel_id = params[:channel_id].to_i
     last_message_id = params[:last_message_id].to_i
-    statement = db.prepare('SELECT * FROM message WHERE id > ? AND channel_id = ? ORDER BY id DESC LIMIT 100')
+    # TODO: N+1
+    statement = db.prepare('SELECT message.id, message.created_at, message.content, user.name, user.display_name, user.avatar_icon FROM message JOIN user ON user.id = message.user_id WHERE message.id > ? AND message.channel_id = ? ORDER BY message.id LIMIT 100')
     rows = statement.execute(last_message_id, channel_id).to_a
+    
     response = []
     rows.each do |row|
       r = {}
       r['id'] = row['id']
-      statement = db.prepare('SELECT name, display_name, avatar_icon FROM user WHERE id = ?')
-      r['user'] = statement.execute(row['user_id']).first
+      r['user'] = {
+        display_name: row['display_name'],
+        name: row['name'],
+        avatar_icon: row['avatar_icon'],
+      }
       r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
       r['content'] = row['content']
       response << r
@@ -133,7 +138,7 @@ class App < Sinatra::Base
     end
     response.reverse!
 
-    max_message_id = rows.empty? ? 0 : rows.map { |row| row['id'] }.max
+    max_message_id = rows.empty? ? 0 : rows[0]['id']
     statement = db.prepare([
       'INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ',
       'VALUES (?, ?, ?, NOW(), NOW()) ',
@@ -151,7 +156,9 @@ class App < Sinatra::Base
       return 403
     end
 
+    # TODO: Tai sao co sleep
     sleep 1.0
+    # TODO: N+1
 
     rows = db.query('SELECT id FROM channel').to_a
     channel_ids = rows.map { |row| row['id'] }
@@ -165,8 +172,10 @@ class App < Sinatra::Base
       r['channel_id'] = channel_id
       r['unread'] = if row.nil?
         statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
+        # Tra về tổng số message chưa đọc
         statement.execute(channel_id).first['cnt']
       else
+        # Trả về tổng số message chưa đọc có id lơn hơn row['message_id'] tìm được
         statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id')
         statement.execute(channel_id, row['message_id']).first['cnt']
       end
@@ -195,6 +204,7 @@ class App < Sinatra::Base
     @page = @page.to_i
 
     n = 20
+    # TODO: N+1
     statement = db.prepare('SELECT * FROM message WHERE channel_id = ? ORDER BY id DESC LIMIT ? OFFSET ?')
     rows = statement.execute(@channel_id, n, (@page - 1) * n).to_a
     statement.close
@@ -263,6 +273,7 @@ class App < Sinatra::Base
     end
     statement = db.prepare('INSERT INTO channel (name, description, updated_at, created_at) VALUES (?, ?, NOW(), NOW())')
     statement.execute(name, description)
+    # TODO: 
     channel_id = db.last_id
     statement.close
     redirect "/channel/#{channel_id}", 303
