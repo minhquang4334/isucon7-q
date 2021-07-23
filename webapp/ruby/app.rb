@@ -1,13 +1,23 @@
 require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
+require 'logger'
+require 'sinatra/custom_logger'
+require 'sinatra'
 
 class App < Sinatra::Base
+  helpers Sinatra::CustomLogger
+
+  configure :development, :production do
+    logger = Logger.new(File.open("ruby.log", 'a'))
+    logger.level = Logger::DEBUG if development?
+    set :logger, logger
+  end
+
   configure do
     set :session_secret, 'tonymoris'
     set :public_folder, File.expand_path('../../public', __FILE__)
     set :avatar_max_size, 1 * 1024 * 1024
-
     enable :sessions
   end
 
@@ -35,9 +45,13 @@ class App < Sinatra::Base
 
   get '/initialize' do
     db.query("DELETE FROM user WHERE id > 1000")
+    db.query("ALTER TABLE user AUTO_INCREMENT = 1000")
     db.query("DELETE FROM image WHERE id > 1001")
+    db.query("ALTER TABLE image AUTO_INCREMENT = 1001")
     db.query("DELETE FROM channel WHERE id > 10")
+    db.query("ALTER TABLE channel AUTO_INCREMENT = 10")
     db.query("DELETE FROM message WHERE id > 10000")
+    db.query("ALTER TABLE message AUTO_INCREMENT = 10000")
     db.query("DELETE FROM haveread")
     204
   end
@@ -118,8 +132,7 @@ class App < Sinatra::Base
 
     channel_id = params[:channel_id].to_i
     last_message_id = params[:last_message_id].to_i
-    statement = db.prepare('SELECT message.id, message.created_at, message.content, user.name, user.display_name, user.avatar_icon FROM message JOIN user ON user.id = message.user_id WHERE message.id > ? AND message.channel_id = ? ORDER BY message.id LIMIT 100')
-    rows = statement.execute(last_message_id, channel_id).to_a
+    rows = db.query("SELECT message.id, message.created_at, message.content, user.name, user.display_name, user.avatar_icon FROM message JOIN user ON user.id = message.user_id WHERE message.id > #{last_message_id} AND message.channel_id = #{channel_id} ORDER BY message.id LIMIT 100").to_a
     response = []
     rows.each do |row|
       r = {}
@@ -132,17 +145,13 @@ class App < Sinatra::Base
       r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
       r['content'] = row['content']
       response << r
-      statement.close
     end
-    response.reverse!
-
-    max_message_id = rows.empty? ? 0 : rows[0]['id']
-    statement = db.prepare([
+    max_message_id = rows.empty? ? 0 : rows.last['id']
+    db.query([
       'INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ',
-      'VALUES (?, ?, ?, NOW(), NOW()) ',
-      'ON DUPLICATE KEY UPDATE message_id = ?, updated_at = NOW()',
+      "VALUES (#{user_id}, #{channel_id}, #{max_message_id}, NOW(), NOW()) ",
+      "ON DUPLICATE KEY UPDATE message_id = #{max_message_id}, updated_at = NOW()",
     ].join)
-    statement.execute(user_id, channel_id, max_message_id, max_message_id)
 
     content_type :json
     response.to_json
