@@ -2,13 +2,21 @@ require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
 require './transaction'
-require './logger'
-require './exclude_isucon_bot'
+require 'logger'
+require 'sinatra/custom_logger'
+require 'sinatra'
+require 'logger/ltsv'
 
 class App < Sinatra::Base
   include Transaction
-  include Logger
-  include ExcludeIsuconBot
+  helpers Sinatra::CustomLogger
+
+  configure :development, :production do
+    logger = Logger.new(File.open("ruby.log", 'w+'))
+    logger.level = Logger::DEBUG
+    logger.formatter = Logger::LTSVFormatter.new
+    set :logger, logger
+  end
 
   configure do
     set :session_secret, 'tonymoris'
@@ -20,6 +28,27 @@ class App < Sinatra::Base
   configure :development do
     require 'sinatra/reloader'
     register Sinatra::Reloader
+  end
+
+  BOT_REGEXP = [
+    /ISUCONbot(-Mobile)?/,
+    /ISUCONbot-Image\//,
+    /Mediapartners-ISUCON/,
+    /ISUCONCoffee/,
+    /ISUCONFeedSeeker(Beta)?/,
+    /crawler \(https:\/\/isucon\.invalid\/(support\/faq\/|help\/jp\/)/,
+    /isubot/,
+    /Isupider/,
+    /Isupider(-image)?\+/,
+    /(bot|crawler|spider)(?:[-_ .\/;@()]|$)/i,
+  ]
+
+  before do
+    BOT_REGEXP.each do |regexp|
+      if regexp.match?(request.user_agent)
+        halt 503
+      end
+    end
   end
 
   helpers do
@@ -181,7 +210,6 @@ class App < Sinatra::Base
       statement.close
       res << r
     end
-
     content_type :json
     res.to_json
   end

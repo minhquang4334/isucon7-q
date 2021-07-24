@@ -12,5 +12,4 @@ node_modules
 bower_components
 agreed
 provisioning
-git-deploy
-
+logs

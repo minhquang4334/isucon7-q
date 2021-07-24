@@ -2,6 +2,7 @@ GEM
   remote: https://rubygems.org/
   specs:
     backports (3.9.1)
+    logger-ltsv (0.0.1)
     multi_json (1.12.2)
     mustermann (1.0.1)
     mysql2 (0.4.9)
@@ -27,6 +28,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  logger-ltsv
   mysql2
   puma
   sinatra
