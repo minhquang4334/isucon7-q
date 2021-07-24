@@ -12,7 +12,7 @@ class App < Sinatra::Base
   helpers Sinatra::CustomLogger
 
   configure :development, :production do
-    logger = Logger.new(File.open("ruby.log", 'w+'))
+    logger = Logger.new(File.open("ruby.log", 'a+'))
     logger.level = Logger::DEBUG
     logger.formatter = Logger::LTSVFormatter.new
     set :logger, logger
