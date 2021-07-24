@@ -157,7 +157,7 @@ class App < Sinatra::Base
 
     channel_id = params[:channel_id].to_i
     last_message_id = params[:last_message_id].to_i
-    rows = db.query("SELECT message.id, message.created_at, message.content, user.name, user.display_name, user.avatar_icon FROM message JOIN user ON user.id = message.user_id WHERE message.id > #{last_message_id} AND message.channel_id = #{channel_id} ORDER BY message.id LIMIT 100").to_a
+    rows = db.query("SELECT message.id, message.created_at, message.content, user.name, user.display_name, user.avatar_icon FROM message JOIN user ON user.id = message.user_id WHERE message.id > #{last_message_id} AND message.channel_id = #{channel_id} ORDER BY message.id DESC LIMIT 100").to_a
     response = []
     rows.each do |row|
       r = {}
@@ -171,7 +171,8 @@ class App < Sinatra::Base
       r['content'] = row['content']
       response << r
     end
-    max_message_id = rows.empty? ? 0 : rows.last['id']
+    response.reverse!
+    max_message_id = rows.empty? ? 0 : rows[0]['id']
     db.query([
       'INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ',
       "VALUES (#{user_id}, #{channel_id}, #{max_message_id}, NOW(), NOW()) ",
@@ -231,25 +232,22 @@ class App < Sinatra::Base
     @page = @page.to_i
 
     n = 20
-    statement = db.prepare('SELECT * FROM message WHERE channel_id = ? ORDER BY id DESC LIMIT ? OFFSET ?')
-    rows = statement.execute(@channel_id, n, (@page - 1) * n).to_a
-    statement.close
+    rows = db.query("SELECT message.id, message.created_at, message.content, user.name, user.display_name, user.avatar_icon FROM message JOIN user ON user.id = message.user_id WHERE message.channel_id = #{@channel_id} ORDER BY message.id DESC LIMIT #{n} OFFSET #{(@page - 1) * n}").to_a
     @messages = []
     rows.each do |row|
       r = {}
       r['id'] = row['id']
-      statement = db.prepare('SELECT name, display_name, avatar_icon FROM user WHERE id = ?')
-      r['user'] = statement.execute(row['user_id']).first
+      r['user'] = {
+        'display_name' => row['display_name'],
+        'name' => row['name'],
+        'avatar_icon' => row['avatar_icon'],
+      }
       r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
       r['content'] = row['content']
       @messages << r
-      statement.close
     end
     @messages.reverse!
-
-    statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
-    cnt = statement.execute(@channel_id).first['cnt'].to_f
-    statement.close
+    cnt = db.query("SELECT COUNT(*) as cnt FROM message WHERE channel_id = #{@channel_id}").first['cnt'].to_f
     @max_page = cnt == 0 ? 1 :(cnt / n).ceil
 
     return 400 if @page > @max_page
@@ -301,6 +299,7 @@ class App < Sinatra::Base
     statement.execute(name, description)
     channel_id = db.last_id
     statement.close
+    @list_channels = nil
     redirect "/channel/#{channel_id}", 303
   end
 
@@ -378,8 +377,8 @@ class App < Sinatra::Base
     @db_client = Mysql2::Client.new(
       host: '172.31.39.102',
       port: ENV.fetch('ISUBATA_DB_PORT') { '3306' },
-      username: ENV.fetch('ISUBATA_DB_USER') { 'root' },
-      password: ENV.fetch('ISUBATA_DB_PASSWORD') { '' },
+      username: ENV.fetch('ISUBATA_DB_USER') { 'isucon' },
+      password: ENV.fetch('ISUBATA_DB_PASSWORD') { 'isucon' },
       database: 'isubata',
       encoding: 'utf8mb4'
     )
@@ -416,15 +415,12 @@ class App < Sinatra::Base
   end
 
   def get_channel_list_info(focus_channel_id = nil)
-    channels = db.query('SELECT * FROM channel ORDER BY id').to_a
-    description = ''
-    channels.each do |channel|
-      if channel['id'] == focus_channel_id
-        description = channel['description']
-        break
-      end
+    if focus_channel_id
+      description_channel = db.query("SELECT * FROM channel WHERE id = #{focus_channel_id}").first
     end
-    [channels, description]
+    description = description_channel ? description_channel['description'] : ''
+    @list_channels ||= db.query('SELECT * FROM channel ORDER BY id').to_a
+    [@list_channels, description]
   end
 
   def ext2mime(ext)
