@@ -1,18 +1,14 @@
 require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
-require 'logger'
-require 'sinatra/custom_logger'
-require 'sinatra'
+require './transaction'
+require './logger'
+require './exclude_isucon_bot'
 
 class App < Sinatra::Base
-  helpers Sinatra::CustomLogger
-
-  configure :development, :production do
-    logger = Logger.new(File.open("ruby.log", 'a'))
-    logger.level = Logger::DEBUG if development?
-    set :logger, logger
-  end
+  include Transaction
+  include Logger
+  include ExcludeIsuconBot
 
   configure do
     set :session_secret, 'tonymoris'
