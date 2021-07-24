@@ -275,6 +275,7 @@ class App < Sinatra::Base
     statement.execute(name, description)
     channel_id = db.last_id
     statement.close
+    @list_channels = nil
     redirect "/channel/#{channel_id}", 303
   end
 
@@ -352,8 +353,8 @@ class App < Sinatra::Base
     @db_client = Mysql2::Client.new(
       host: '172.31.39.102',
       port: ENV.fetch('ISUBATA_DB_PORT') { '3306' },
-      username: ENV.fetch('ISUBATA_DB_USER') { 'root' },
-      password: ENV.fetch('ISUBATA_DB_PASSWORD') { '' },
+      username: ENV.fetch('ISUBATA_DB_USER') { 'isucon' },
+      password: ENV.fetch('ISUBATA_DB_PASSWORD') { 'isucon' },
       database: 'isubata',
       encoding: 'utf8mb4'
     )
@@ -390,15 +391,12 @@ class App < Sinatra::Base
   end
 
   def get_channel_list_info(focus_channel_id = nil)
-    channels = db.query('SELECT * FROM channel ORDER BY id').to_a
-    description = ''
-    channels.each do |channel|
-      if channel['id'] == focus_channel_id
-        description = channel['description']
-        break
-      end
+    if focus_channel_id
+      description_channel = db.query("SELECT * FROM channel WHERE id = #{focus_channel_id}").first
     end
-    [channels, description]
+    description = description_channel ? description_channel['description'] : ''
+    @list_channels ||= db.query('SELECT * FROM channel ORDER BY id').to_a
+    [@list_channels, description]
   end
 
   def ext2mime(ext)
