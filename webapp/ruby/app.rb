@@ -162,30 +162,33 @@ class App < Sinatra::Base
     if user_id.nil?
       return 403
     end
-
-    sleep 1.0
+    # TODO: Tai sao co sleep
+    # sleep 1.0
+    # TODO: N+1
 
     rows = db.query('SELECT id FROM channel').to_a
     channel_ids = rows.map { |row| row['id'] }
 
+    rows = db.query("SELECT channel_id, message_id FROM haveread WHERE user_id = #{user_id} AND channel_id IN (#{channel_ids.join(',')})").to_a
+    haveread_channel = rows.group_by { |r| r['channel_id']}
+
+    unread_channel_ids = channel_ids - haveread_channel.keys
+
+    results = db.query("SELECT channel_id, id from message where channel_id IN (#{channel_ids.join(',')})").to_a
+    message_group_by_channel = results.group_by { |r| r['channel_id'] }
+
     res = []
-    channel_ids.each do |channel_id|
-      statement = db.prepare('SELECT * FROM haveread WHERE user_id = ? AND channel_id = ?')
-      row = statement.execute(user_id, channel_id).first
-      statement.close
+    channel_ids.map do |id|
       r = {}
-      r['channel_id'] = channel_id
-      r['unread'] = if row.nil?
-        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
-        statement.execute(channel_id).first['cnt']
+      r['channel_id'] = id
+      unless haveread_channel.key?(id)
+        r['unread'] = message_group_by_channel[id]&.size || 0
       else
-        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id')
-        statement.execute(channel_id, row['message_id']).first['cnt']
+        r['unread'] = message_group_by_channel[id]&.select { |r| r['id'] > haveread_channel[id][0]['message_id'] }&.size || 0
       end
-      statement.close
       res << r
     end
-
+    logger.info(res)
     content_type :json
     res.to_json
   end
