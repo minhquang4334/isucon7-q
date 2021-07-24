@@ -132,7 +132,7 @@ class App < Sinatra::Base
 
     channel_id = params[:channel_id].to_i
     last_message_id = params[:last_message_id].to_i
-    rows = db.query("SELECT message.id, message.created_at, message.content, user.name, user.display_name, user.avatar_icon FROM message JOIN user ON user.id = message.user_id WHERE message.id > #{last_message_id} AND message.channel_id = #{channel_id} ORDER BY message.id LIMIT 100").to_a
+    rows = db.query("SELECT message.id, message.created_at, message.content, user.name, user.display_name, user.avatar_icon FROM message JOIN user ON user.id = message.user_id WHERE message.id > #{last_message_id} AND message.channel_id = #{channel_id} ORDER BY message.id DESC LIMIT 100").to_a
     response = []
     rows.each do |row|
       r = {}
@@ -146,7 +146,8 @@ class App < Sinatra::Base
       r['content'] = row['content']
       response << r
     end
-    max_message_id = rows.empty? ? 0 : rows.last['id']
+    response.reverse!
+    max_message_id = rows.empty? ? 0 : rows[0]['id']
     db.query([
       'INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ',
       "VALUES (#{user_id}, #{channel_id}, #{max_message_id}, NOW(), NOW()) ",
@@ -207,21 +208,21 @@ class App < Sinatra::Base
     @page = @page.to_i
 
     n = 20
-    rows = db.query("SELECT message.id, message.created_at, message.content, user.name, user.display_name, user.avatar_icon FROM message JOIN user ON user.id = message.user_id WHERE message.channel_id = #{@channel_id} ORDER BY message.id LIMIT #{n} OFFSET #{(@page - 1) * n}").to_a
+    rows = db.query("SELECT message.id, message.created_at, message.content, user.name, user.display_name, user.avatar_icon FROM message JOIN user ON user.id = message.user_id WHERE message.channel_id = #{@channel_id} ORDER BY message.id DESC LIMIT #{n} OFFSET #{(@page - 1) * n}").to_a
     @messages = []
     rows.each do |row|
       r = {}
       r['id'] = row['id']
       r['user'] = {
-        display_name: row['display_name'],
-        name: row['name'],
-        avatar_icon: row['avatar_icon'],
+        'display_name' => row['display_name'],
+        'name' => row['name'],
+        'avatar_icon' => row['avatar_icon'],
       }
       r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
       r['content'] = row['content']
       @messages << r
     end
-
+    @messages.reverse!
     cnt = db.query("SELECT COUNT(*) as cnt FROM message WHERE channel_id = #{@channel_id}").first['cnt'].to_f
     @max_page = cnt == 0 ? 1 :(cnt / n).ceil
 
