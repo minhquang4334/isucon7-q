@@ -222,8 +222,7 @@ class App < Sinatra::Base
       @messages << r
     end
 
-    statement = db.query("SELECT COUNT(*) as cnt FROM message WHERE channel_id = #{@channel_id}")
-    cnt = statement.execute(@channel_id).first['cnt'].to_f
+    cnt = db.query("SELECT COUNT(*) as cnt FROM message WHERE channel_id = #{@channel_id}").first['cnt'].to_f
     @max_page = cnt == 0 ? 1 :(cnt / n).ceil
 
     return 400 if @page > @max_page
