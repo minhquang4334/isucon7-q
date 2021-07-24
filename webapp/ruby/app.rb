@@ -6,11 +6,13 @@ require 'logger'
 require 'sinatra/custom_logger'
 require 'sinatra'
 require 'logger/ltsv'
+require 'redis'
 
 class App < Sinatra::Base
   include Transaction
   helpers Sinatra::CustomLogger
 
+  @redis = Redis.new
   configure :development, :production do
     logger = Logger.new(File.open("ruby.log", 'a+'))
     logger.level = Logger::DEBUG
@@ -357,14 +359,20 @@ class App < Sinatra::Base
 
   get '/icons/:file_name' do
     file_name = params[:file_name]
-    statement = db.prepare('SELECT * FROM image WHERE name = ?')
-    row = statement.execute(file_name).first
-    statement.close
+
+    file_data = @redis.get(file_name)
+    unless file_data
+      file = db.query("SELECT * FROM image WHERE name = #{file_name}").first
+      return 404 if file.nil?
+      file_data = file['data']
+      @redis.set(file_name, file_data)
+    end
+
     ext = file_name.include?('.') ? File.extname(file_name) : ''
     mime = ext2mime(ext)
-    if !row.nil? && !mime.empty?
+    if !mime.empty?
       content_type mime
-      return row['data']
+      return file_data
     end
     404
   end
