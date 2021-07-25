@@ -7,4 +7,4 @@ gem 'sinatra-contrib'
 gem 'logger-ltsv', require: 'logger/ltsv'
 gem "sinatra-activerecord"
 gem 'rake'
-
+gem 'redis'

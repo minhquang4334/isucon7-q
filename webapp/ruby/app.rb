@@ -2,17 +2,18 @@ require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
 require './transaction'
-# require 'logger'
 require 'sinatra/custom_logger'
 require 'sinatra'
 require 'logger/ltsv'
 require 'sinatra/activerecord'
-
+require 'redis'
 
 class App < Sinatra::Base
   include Transaction
   helpers Sinatra::CustomLogger
   register Sinatra::ActiveRecordExtension
+
+  set :redis, Redis.new(:host => '127.0.0.1', :port => 6379)
 
   set :database, {
     adapter: 'mysql2',
@@ -56,7 +57,7 @@ class App < Sinatra::Base
 
   configure do
     set :session_secret, 'tonymoris'
-    set :public_folder, File.expand_path('../../public', __FILE__)
+    set :public_folder, File.expand_path('../public', __FILE__)
     set :avatar_max_size, 1 * 1024 * 1024
     enable :sessions
   end
@@ -107,8 +108,6 @@ class App < Sinatra::Base
   get '/initialize' do
     db.query("DELETE FROM user WHERE id > 1000")
     db.query("ALTER TABLE user AUTO_INCREMENT = 1000")
-    db.query("DELETE FROM image WHERE id > 1001")
-    db.query("ALTER TABLE image AUTO_INCREMENT = 1001")
     db.query("DELETE FROM channel WHERE id > 10")
     db.query("ALTER TABLE channel AUTO_INCREMENT = 10")
     db.query("DELETE FROM message WHERE id > 10000")
@@ -374,9 +373,9 @@ class App < Sinatra::Base
     end
 
     if !avatar_name.nil? && !avatar_data.nil?
-      statement = db.prepare('INSERT INTO image (name, data) VALUES (?, ?)')
-      statement.execute(avatar_name, avatar_data)
-      statement.close
+      File.open("../public/icons/#{avatar_name}", 'wb') do |f|
+	f.write(avatar_data)
+      end
       statement = db.prepare('UPDATE user SET avatar_icon = ? WHERE id = ?')
       statement.execute(avatar_name, user['id'])
       statement.close
@@ -389,20 +388,6 @@ class App < Sinatra::Base
     end
 
     redirect '/', 303
-  end
-
-  get '/icons/:file_name' do
-    file_name = params[:file_name]
-    statement = db.prepare('SELECT * FROM image WHERE name = ?')
-    row = statement.execute(file_name).first
-    statement.close
-    ext = file_name.include?('.') ? File.extname(file_name) : ''
-    mime = ext2mime(ext)
-    if !row.nil? && !mime.empty?
-      content_type mime
-      return row['data']
-    end
-    404
   end
 
   private
