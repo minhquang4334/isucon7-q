@@ -2,20 +2,56 @@ require 'digest/sha1'
 require 'mysql2'
 require 'sinatra/base'
 require './transaction'
-require 'logger'
+# require 'logger'
 require 'sinatra/custom_logger'
 require 'sinatra'
 require 'logger/ltsv'
+require 'sinatra/activerecord'
+
 
 class App < Sinatra::Base
   include Transaction
   helpers Sinatra::CustomLogger
+  register Sinatra::ActiveRecordExtension
 
-  configure :development, :production do
-    logger = Logger.new(File.open("ruby.log", 'a+'))
-    logger.level = Logger::DEBUG
-    logger.formatter = Logger::LTSVFormatter.new
-    set :logger, logger
+  set :database, {
+    adapter: 'mysql2',
+    pool: 16,
+    reconnect: true,
+    port: ENV.fetch('ISUBATA_DB_PORT') { '3306' },
+    username: ENV.fetch('ISUBATA_DB_USER') { 'root' },
+    password: ENV.fetch('ISUBATA_DB_PASSWORD') { '' },
+    database: 'el_training_quang_development',
+    host: '127.0.0.1',
+    encoding: 'utf8mb4'
+  }
+
+  configure do
+    ActiveRecord::Base.logger = Logger.new(File.open("ruby.log", 'a+'))
+    ActiveRecord::Base.logger.level = Logger::DEBUG
+    ActiveRecord::Base.logger.formatter = Logger::LTSVFormatter.new
+    set :logger, ActiveRecord::Base.logger
+  end
+
+  class Channel < ActiveRecord::Base
+    has_many :havereads
+    self.table_name = 'channel'
+  end
+  class User < ActiveRecord::Base
+    has_many :messages
+    has_many :havereads
+    self.table_name = 'users'
+  end
+  class Haveread < ActiveRecord::Base
+    self.table_name = 'haveread'
+  end
+
+  class Image < ActiveRecord::Base
+    self.table_name = 'image'
+  end
+  class Message < ActiveRecord::Base
+    belongs_to :user
+    self.table_name = 'message'
   end
 
   configure do
