@@ -6,14 +6,14 @@ require 'sinatra/custom_logger'
 require 'sinatra'
 require 'logger/ltsv'
 require 'sinatra/activerecord'
-require 'redis'
+#require 'redis'
 
 class App < Sinatra::Base
   include Transaction
   helpers Sinatra::CustomLogger
   register Sinatra::ActiveRecordExtension
 
-  set :redis, Redis.new(:host => '127.0.0.1', :port => 6379)
+#  set :redis, Redis.new(:host => '127.0.0.1', :port => 6379)
 
   set :database, {
     adapter: 'mysql2',
@@ -47,9 +47,6 @@ class App < Sinatra::Base
     self.table_name = 'haveread'
   end
 
-  class Image < ActiveRecord::Base
-    self.table_name = 'image'
-  end
   class Message < ActiveRecord::Base
     belongs_to :user
     self.table_name = 'message'
@@ -373,9 +370,8 @@ class App < Sinatra::Base
     end
 
     if !avatar_name.nil? && !avatar_data.nil?
-      File.open("../public/icons/#{avatar_name}", 'wb') do |f|
-	f.write(avatar_data)
-      end
+      path = "../public/icons/#{avatar_name}"
+      File.open(path, 'a') {|f| f.write(avatar_data)} unless File.exist?(path)
       statement = db.prepare('UPDATE user SET avatar_icon = ? WHERE id = ?')
       statement.execute(avatar_name, user['id'])
       statement.close

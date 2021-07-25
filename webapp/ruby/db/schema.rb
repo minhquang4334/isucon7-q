@@ -27,12 +27,6 @@ ActiveRecord::Schema.define(version: 2021_07_25_012640) do
     t.datetime "created_at", null: false
   end
 
-  create_table "image", id: :bigint, unsigned: true, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", force: :cascade do |t|
-    t.string "name", limit: 191
-    t.binary "data", limit: 4294967295
-    t.index ["name"], name: "index_image_on_name"
-  end
-
   create_table "message", options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", force: :cascade do |t|
     t.bigint "channel_id"
     t.bigint "user_id"

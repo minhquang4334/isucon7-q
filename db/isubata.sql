@@ -14,16 +14,6 @@ CREATE TABLE user (
   created_at DATETIME NOT NULL
 ) Engine=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- SELECT * FROM image WHERE name = ?
--- INSERT INTO image (name, data) VALUES (?, ?)
--- UPDATE user SET display_name = ? WHERE id = ?'
--- UPDATE user SET avatar_icon = ? WHERE id = ?
-CREATE TABLE image (
-  id INTEGER UNSIGNED AUTO_INCREMENT NOT NULL PRIMARY KEY,
-  name VARCHAR(191),
-  data LONGBLOB
-) Engine=InnoDB DEFAULT CHARSET=utf8mb4;
-
 -- 'SELECT id FROM channel'
 -- SELECT * FROM channel ORDER BY id
 -- INSERT INTO channel (name, description, updated_at, created_at) VALUES (?, ?, NOW(), NOW())'
