@@ -19,10 +19,10 @@ class App < Sinatra::Base
     pool: 16,
     reconnect: true,
     port: ENV.fetch('ISUBATA_DB_PORT') { '3306' },
-    username: ENV.fetch('ISUBATA_DB_USER') { 'root' },
-    password: ENV.fetch('ISUBATA_DB_PASSWORD') { '' },
-    database: 'el_training_quang_development',
-    host: '127.0.0.1',
+    username: ENV.fetch('ISUBATA_DB_USER') { 'isucon' },
+    password: ENV.fetch('ISUBATA_DB_PASSWORD') { 'isucon' },
+    database: 'isubata',
+    host: '172.31.39.237',
     encoding: 'utf8mb4'
   }
 
